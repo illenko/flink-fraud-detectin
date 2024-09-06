@@ -1,0 +1,58 @@
+{
+  "type": "record",
+  "name": "PurchaseRecord",
+  "namespace": "com.illenko.avro",
+  "fields": [
+    {
+      "name": "firstName",
+      "type": "string"
+    },
+    {
+      "name": "lastName",
+      "type": "string"
+    },
+    {
+      "name": "customerId",
+      "type": "string"
+    },
+    {
+      "name": "creditCardNumber",
+      "type": "string"
+    },
+    {
+      "name": "itemPurchased",
+      "type": "string"
+    },
+    {
+      "name": "department",
+      "type": "string"
+    },
+    {
+      "name": "employeeId",
+      "type": "string"
+    },
+    {
+      "name": "quantity",
+      "type": "int"
+    },
+    {
+      "name": "price",
+      "type": "double"
+    },
+    {
+      "name": "purchaseDate",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "zipCode",
+      "type": "string"
+    },
+    {
+      "name": "storeId",
+      "type": "string"
+    }
+  ]
+}
