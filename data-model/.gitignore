@@ -2,8 +2,6 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
-.gradle/
-build/
 
 # IntelliJ IDEA
 .idea/
@@ -13,19 +11,6 @@ build/
 out/
 
 # Kotlin
-*.class
-*.jar
-*.war
-*.ear
-*.db
-*.log
-*.swp
-*.swo
-*.swn
-*.bak
-*.tmp
-*.orig
-*.rej
 *.class
 *.jar
 *.war

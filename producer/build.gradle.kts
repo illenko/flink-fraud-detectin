@@ -32,7 +32,7 @@ dependencies {
     implementation("org.springframework.kafka:spring-kafka")
 
     implementation("org.apache.avro:avro:$avroVersion")
-    implementation("com.illenko:purchase-model:$purchaseModelVersion")
+    implementation("com.illenko:data-model:$purchaseModelVersion")
     implementation("io.confluent:kafka-avro-serializer:$kafkaAvroSerializerVersion")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
