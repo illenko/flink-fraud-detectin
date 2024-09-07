@@ -1,5 +1,6 @@
 package com.example.demo.streams
 
+import com.example.demo.securitydb.SecurityDbService
 import com.illenko.avro.Purchase
 import com.illenko.avro.PurchasePattern
 import com.illenko.avro.RewardAccumulator
@@ -10,80 +11,63 @@ import org.apache.kafka.streams.kstream.Branched
 import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.Produced
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class PurchaseStream {
+class PurchaseStream(
+    private val purchaseSerde: SpecificAvroSerde<Purchase>,
+    private val purchasePatternSerde: SpecificAvroSerde<PurchasePattern>,
+    private val rewardAccumulatorSerde: SpecificAvroSerde<RewardAccumulator>,
+    private val securityDbService: SecurityDbService,
+) {
     @Bean
-    fun kStream(
-        @Value("\${spring.kafka.streams.properties.schema.registry.url}") schemaRegistryUrl: String,
-        builder: StreamsBuilder,
-    ): KStream<String, Purchase> {
-        val serdeConfig = mapOf("schema.registry.url" to schemaRegistryUrl)
-
-        val purchaseKStream = createPurchaseStream(builder, serdeConfig)
-        createPatternStream(purchaseKStream, serdeConfig)
-        createRewardsStream(purchaseKStream, serdeConfig)
-        splitStreamByDepartment(purchaseKStream, serdeConfig)
+    fun kStream(builder: StreamsBuilder): KStream<String, Purchase> {
+        val purchaseKStream = createPurchaseStream(builder)
+        createPatternStream(purchaseKStream)
+        createRewardsStream(purchaseKStream)
+        splitStreamByDepartment(purchaseKStream)
+        filterAndSaveToSecurityDb(purchaseKStream)
+        filterAndMaskPurchases(purchaseKStream)
 
         return purchaseKStream
     }
 
-    private fun createPurchaseStream(
-        builder: StreamsBuilder,
-        serdeConfig: Map<String, String>,
-    ): KStream<String, Purchase> =
+    private fun createPurchaseStream(builder: StreamsBuilder): KStream<String, Purchase> =
         builder
             .stream(
                 "purchase",
                 Consumed.with(
                     Serdes.String(),
-                    SpecificAvroSerde<Purchase>().apply {
-                        configure(serdeConfig, false)
-                    },
+                    purchaseSerde,
                 ),
             ).mapValues { p -> p.toMasked() }
 
-    private fun createPatternStream(
-        purchaseKStream: KStream<String, Purchase>,
-        serdeConfig: Map<String, String>,
-    ): KStream<String, PurchasePattern> {
+    private fun createPatternStream(purchaseKStream: KStream<String, Purchase>): KStream<String, PurchasePattern> {
         val patternKStream = purchaseKStream.mapValues { p -> p.toPattern() }
         patternKStream.to(
             "patterns",
             Produced.with(
                 Serdes.String(),
-                SpecificAvroSerde<PurchasePattern>().apply {
-                    configure(serdeConfig, false)
-                },
+                purchasePatternSerde,
             ),
         )
         return patternKStream
     }
 
-    private fun createRewardsStream(
-        purchaseKStream: KStream<String, Purchase>,
-        serdeConfig: Map<String, String>,
-    ): KStream<String, RewardAccumulator> {
+    private fun createRewardsStream(purchaseKStream: KStream<String, Purchase>): KStream<String, RewardAccumulator> {
         val rewardsKStream = purchaseKStream.mapValues { p -> p.toReward() }
         rewardsKStream.to(
             "rewards",
             Produced.with(
                 Serdes.String(),
-                SpecificAvroSerde<RewardAccumulator>().apply {
-                    configure(serdeConfig, false)
-                },
+                rewardAccumulatorSerde,
             ),
         )
         return rewardsKStream
     }
 
-    private fun splitStreamByDepartment(
-        purchaseKStream: KStream<String, Purchase>,
-        serdeConfig: Map<String, String>,
-    ) {
+    private fun splitStreamByDepartment(purchaseKStream: KStream<String, Purchase>) {
         purchaseKStream
             .split()
             .branch(
@@ -93,7 +77,7 @@ class PurchaseStream {
                         "coffee",
                         Produced.with(
                             Serdes.String(),
-                            SpecificAvroSerde<Purchase>().apply { configure(serdeConfig, false) },
+                            purchaseSerde,
                         ),
                     )
                 },
@@ -104,10 +88,29 @@ class PurchaseStream {
                         "electronics",
                         Produced.with(
                             Serdes.String(),
-                            SpecificAvroSerde<Purchase>().apply { configure(serdeConfig, false) },
+                            purchaseSerde,
                         ),
                     )
                 },
+            )
+    }
+
+    private fun filterAndSaveToSecurityDb(purchaseKStream: KStream<String, Purchase>) {
+        purchaseKStream
+            .filter { _, v -> v.employeeId == "E100" }
+            .foreach { _, v -> securityDbService.save(v) }
+    }
+
+    private fun filterAndMaskPurchases(purchaseKStream: KStream<String, Purchase>) {
+        purchaseKStream
+            .filter { _, v -> v.price > 20.0 }
+            .selectKey { _, v -> v.purchaseDate.toEpochMilli() }
+            .to(
+                "purchase-masked",
+                Produced.with(
+                    Serdes.Long(),
+                    purchaseSerde,
+                ),
             )
     }
 
