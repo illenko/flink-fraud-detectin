@@ -10,7 +10,6 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlin.random.Random
 
 @SpringBootApplication
 class ProducerApplication {
@@ -25,22 +24,35 @@ class ProducerApplication {
             }, 0, 10, TimeUnit.SECONDS)
         }
 
-    private fun generateRandomPurchaseRecord(): Purchase =
-        Purchase
+    private fun generateRandomPurchaseRecord(): Purchase {
+        val firstNames = listOf("John", "Jane", "Alex", "Chris")
+        val lastNames = listOf("Doe", "Smith", "Johnson", "Brown")
+        val customerIds = listOf("1001", "1002", "1003", "1004")
+        val creditCardNumbers = listOf("4111111111111111", "4111111111112222", "4111111111113333", "4111111111114444")
+        val itemsPurchased = listOf("Item1", "Item2", "Item3", "Item4")
+        val departments = listOf("coffee", "electronics", "grocery", "water")
+        val employeeIds = listOf("E100", "E200", "E300", "E400")
+        val quantities = listOf(1, 2, 3, 4)
+        val prices = listOf(10.0, 20.0, 30.0, 40.0)
+        val zipCodes = listOf("10000", "20000", "30000", "40000")
+        val storeIds = listOf("S1", "S2", "S3", "S4")
+
+        return Purchase
             .newBuilder()
-            .setFirstName("John${Random.nextInt(1000)}")
-            .setLastName("Doe${Random.nextInt(1000)}")
-            .setCustomerId(Random.nextInt(10000).toString())
-            .setCreditCardNumber("411111111111${Random.nextInt(1000, 9999)}")
-            .setItemPurchased("Item${Random.nextInt(100)}")
-            .setDepartment("Department${Random.nextInt(10)}")
-            .setEmployeeId("E${Random.nextInt(1000)}")
-            .setQuantity(Random.nextInt(1, 10))
-            .setPrice(Random.nextDouble(10.0, 1000.0))
+            .setFirstName(firstNames.random())
+            .setLastName(lastNames.random())
+            .setCustomerId(customerIds.random())
+            .setCreditCardNumber(creditCardNumbers.random())
+            .setItemPurchased(itemsPurchased.random())
+            .setDepartment(departments.random())
+            .setEmployeeId(employeeIds.random())
+            .setQuantity(quantities.random())
+            .setPrice(prices.random())
             .setPurchaseDate(Instant.now())
-            .setZipCode(Random.nextInt(10000, 99999).toString())
-            .setStoreId("S${Random.nextInt(100)}")
+            .setZipCode(zipCodes.random())
+            .setStoreId(storeIds.random())
             .build()
+    }
 }
 
 fun main(args: Array<String>) {

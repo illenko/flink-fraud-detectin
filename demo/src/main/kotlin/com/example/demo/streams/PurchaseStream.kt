@@ -6,6 +6,7 @@ import com.illenko.avro.RewardAccumulator
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.StreamsBuilder
+import org.apache.kafka.streams.kstream.Branched
 import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.Produced
@@ -22,21 +23,34 @@ class PurchaseStream {
     ): KStream<String, Purchase> {
         val serdeConfig = mapOf("schema.registry.url" to schemaRegistryUrl)
 
-        val purchaseKStream =
-            builder
-                .stream(
-                    "purchase",
-                    Consumed.with(
-                        Serdes.String(),
-                        SpecificAvroSerde<Purchase>().apply {
-                            configure(serdeConfig, false)
-                        },
-                    ),
-                ).mapValues { p -> p.toMasked() }
+        val purchaseKStream = createPurchaseStream(builder, serdeConfig)
+        createPatternStream(purchaseKStream, serdeConfig)
+        createRewardsStream(purchaseKStream, serdeConfig)
+        splitStreamByDepartment(purchaseKStream, serdeConfig)
 
-        val patternKStream =
-            purchaseKStream.mapValues { p -> p.toPattern() }
+        return purchaseKStream
+    }
 
+    private fun createPurchaseStream(
+        builder: StreamsBuilder,
+        serdeConfig: Map<String, String>,
+    ): KStream<String, Purchase> =
+        builder
+            .stream(
+                "purchase",
+                Consumed.with(
+                    Serdes.String(),
+                    SpecificAvroSerde<Purchase>().apply {
+                        configure(serdeConfig, false)
+                    },
+                ),
+            ).mapValues { p -> p.toMasked() }
+
+    private fun createPatternStream(
+        purchaseKStream: KStream<String, Purchase>,
+        serdeConfig: Map<String, String>,
+    ): KStream<String, PurchasePattern> {
+        val patternKStream = purchaseKStream.mapValues { p -> p.toPattern() }
         patternKStream.to(
             "patterns",
             Produced.with(
@@ -46,10 +60,14 @@ class PurchaseStream {
                 },
             ),
         )
+        return patternKStream
+    }
 
-        val rewardsKStream =
-            purchaseKStream.mapValues { p -> p.toReward() }
-
+    private fun createRewardsStream(
+        purchaseKStream: KStream<String, Purchase>,
+        serdeConfig: Map<String, String>,
+    ): KStream<String, RewardAccumulator> {
+        val rewardsKStream = purchaseKStream.mapValues { p -> p.toReward() }
         rewardsKStream.to(
             "rewards",
             Produced.with(
@@ -59,8 +77,38 @@ class PurchaseStream {
                 },
             ),
         )
+        return rewardsKStream
+    }
 
-        return purchaseKStream
+    private fun splitStreamByDepartment(
+        purchaseKStream: KStream<String, Purchase>,
+        serdeConfig: Map<String, String>,
+    ) {
+        purchaseKStream
+            .split()
+            .branch(
+                { _, purchase -> "coffee" == purchase.department },
+                Branched.withConsumer { ks ->
+                    ks.to(
+                        "coffee",
+                        Produced.with(
+                            Serdes.String(),
+                            SpecificAvroSerde<Purchase>().apply { configure(serdeConfig, false) },
+                        ),
+                    )
+                },
+            ).branch(
+                { _, purchase -> "electronics" == purchase.department },
+                Branched.withConsumer { ks ->
+                    ks.to(
+                        "electronics",
+                        Produced.with(
+                            Serdes.String(),
+                            SpecificAvroSerde<Purchase>().apply { configure(serdeConfig, false) },
+                        ),
+                    )
+                },
+            )
     }
 
     fun Purchase.toMasked(): Purchase =
