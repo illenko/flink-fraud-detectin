@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "RewardAccumulator",
+  "namespace": "com.illenko.avro",
+  "fields": [
+    {
+      "name": "customerId",
+      "type": "string"
+    },
+    {
+      "name": "purchaseTotal",
+      "type": "double"
+    },
+    {
+      "name": "totalRewardPoints",
+      "type": "int"
+    },
+    {
+      "name": "currentRewardPoints",
+      "type": "int"
+    },
+    {
+      "name": "daysFromLastPurchase",
+      "type": "int"
+    }
+  ]
+}

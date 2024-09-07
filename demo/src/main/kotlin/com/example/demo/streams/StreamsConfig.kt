@@ -32,8 +32,8 @@ class StreamsConfig {
 
     @Bean(name = [KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME])
     fun kStreamsConfigs(
-        @Value("\$spring.kafka.streams.application-id") applicationId: String,
-        @Value("\$spring.kafka.streams.bootstrap-servers") bootstrapServers: String,
+        @Value("\${spring.kafka.streams.application-id}") applicationId: String,
+        @Value("\${spring.kafka.streams.bootstrap-servers}") bootstrapServers: String,
     ): KafkaStreamsConfiguration =
         KafkaStreamsConfiguration(
             mapOf(

@@ -1,6 +1,6 @@
 package com.illenko.producer
 
-import com.illenko.avro.PurchaseRecord
+import com.illenko.avro.Purchase
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -15,7 +15,7 @@ import kotlin.random.Random
 @SpringBootApplication
 class ProducerApplication {
     @Bean
-    fun run(kafkaTemplate: KafkaTemplate<String, PurchaseRecord>) =
+    fun run(kafkaTemplate: KafkaTemplate<String, Purchase>) =
         CommandLineRunner {
             val scheduler = Executors.newScheduledThreadPool(1)
             scheduler.scheduleAtFixedRate({
@@ -25,8 +25,8 @@ class ProducerApplication {
             }, 0, 10, TimeUnit.SECONDS)
         }
 
-    private fun generateRandomPurchaseRecord(): PurchaseRecord =
-        PurchaseRecord
+    private fun generateRandomPurchaseRecord(): Purchase =
+        Purchase
             .newBuilder()
             .setFirstName("John${Random.nextInt(1000)}")
             .setLastName("Doe${Random.nextInt(1000)}")

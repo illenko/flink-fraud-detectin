@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "PurchasePattern",
+  "namespace": "com.illenko.avro",
+  "fields": [
+    {
+      "name": "zipCode",
+      "type": "string"
+    },
+    {
+      "name": "item",
+      "type": "string"
+    },
+    {
+      "name": "date",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "amount",
+      "type": "double"
+    }
+  ]
+}

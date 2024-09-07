@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "PurchaseRecord",
+  "name": "Purchase",
   "namespace": "com.illenko.avro",
   "fields": [
     {
