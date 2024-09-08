@@ -2,22 +2,16 @@ package com.example.demo.transformer
 
 import com.illenko.avro.Purchase
 import com.illenko.avro.RewardAccumulator
-import org.apache.kafka.streams.kstream.ValueTransformer
-import org.apache.kafka.streams.processor.ProcessorContext
 import org.apache.kafka.streams.state.KeyValueStore
 
-class PurchaseRewardTransformer(
-    private val stateStoreName: String,
-) : ValueTransformer<Purchase, RewardAccumulator> {
+class PurchaseRewardTransformer {
     private lateinit var stateStore: KeyValueStore<String, Int>
-    private lateinit var context: ProcessorContext
 
-    override fun init(context: ProcessorContext) {
-        this.context = context
-        stateStore = context.getStateStore(stateStoreName) as KeyValueStore<String, Int>
+    fun init(stateStore: KeyValueStore<String, Int>) {
+        this.stateStore = stateStore
     }
 
-    override fun transform(value: Purchase): RewardAccumulator {
+    fun transform(value: Purchase): RewardAccumulator {
         println("Transforming purchase: $value")
 
         val rewardAccumulator: RewardAccumulator = value.toReward()
@@ -30,8 +24,7 @@ class PurchaseRewardTransformer(
         return rewardAccumulator
     }
 
-    override fun close() {
-        // no-op
+    fun close() {
     }
 
     private fun Purchase.toReward(): RewardAccumulator {

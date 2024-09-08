@@ -2,6 +2,7 @@ package com.example.demo.streams
 
 import com.example.demo.partitioner.RewardsStreamPartitioner
 import com.example.demo.securitydb.SecurityDbService
+import com.example.demo.supplier.PurchaseRewardProcessorSupplier
 import com.example.demo.transformer.PurchaseRewardTransformer
 import com.illenko.avro.Purchase
 import com.illenko.avro.PurchasePattern
@@ -12,8 +13,9 @@ import org.apache.kafka.streams.StreamsBuilder
 import org.apache.kafka.streams.kstream.Branched
 import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.KStream
+import org.apache.kafka.streams.kstream.Named
 import org.apache.kafka.streams.kstream.Produced
-import org.apache.kafka.streams.kstream.ValueTransformerSupplier
+import org.apache.kafka.streams.kstream.Repartitioned
 import org.apache.kafka.streams.state.Stores
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -60,35 +62,37 @@ class PurchaseStream(
         return patternKStream
     }
 
-    // TODO: review this code and replace deprecated parts
     private fun createRewardsStream(
         builder: StreamsBuilder,
         purchaseKStream: KStream<String, Purchase>,
     ): KStream<String, RewardAccumulator> {
-        val storeSupplier = Stores.inMemoryKeyValueStore("rewardsPointsStore")
-        val storeBuilder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), Serdes.Integer())
-
-        builder.addStateStore(storeBuilder)
-
-        val purchasesByCustomerStream =
-            purchaseKStream.through(
-                "customer_transactions",
-                Produced.with(Serdes.String(), purchaseSerde, rewardsStreamPartitioner),
-            )
-
-        val statefulRewardAccumulator =
-            purchasesByCustomerStream.transformValues(
-                ValueTransformerSupplier { PurchaseRewardTransformer("rewardsPointsStore") },
-                "rewardsPointsStore",
-            )
-
-        statefulRewardAccumulator.to(
-            "rewards",
-            Produced.with(Serdes.String(), rewardAccumulatorSerde),
-        )
-
+        addStateStore(builder)
+        val purchasesByCustomerStream = repartitionStream(purchaseKStream)
+        val statefulRewardAccumulator = processValues(purchasesByCustomerStream)
+        statefulRewardAccumulator.to("rewards", Produced.with(Serdes.String(), rewardAccumulatorSerde))
         return statefulRewardAccumulator
     }
+
+    private fun addStateStore(builder: StreamsBuilder) {
+        val storeSupplier = Stores.inMemoryKeyValueStore("rewardsPointsStore")
+        val storeBuilder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), Serdes.Integer())
+        builder.addStateStore(storeBuilder)
+    }
+
+    private fun repartitionStream(purchaseKStream: KStream<String, Purchase>): KStream<String, Purchase> =
+        purchaseKStream.repartition(
+            Repartitioned
+                .with(Serdes.String(), purchaseSerde)
+                .withName("customer_transactions")
+                .withStreamPartitioner(rewardsStreamPartitioner),
+        )
+
+    private fun processValues(purchasesByCustomerStream: KStream<String, Purchase>): KStream<String, RewardAccumulator> =
+        purchasesByCustomerStream.processValues(
+            PurchaseRewardProcessorSupplier(PurchaseRewardTransformer()),
+            Named.`as`("rewardsPointsProcessor"),
+            "rewardsPointsStore",
+        )
 
     private fun splitStreamByDepartment(purchaseKStream: KStream<String, Purchase>) {
         purchaseKStream
@@ -149,15 +153,5 @@ class PurchaseStream(
             .setItem(this.itemPurchased)
             .setDate(this.purchaseDate)
             .setAmount(this.price * this.quantity)
-            .build()
-
-    fun Purchase.toReward(): RewardAccumulator =
-        RewardAccumulator
-            .newBuilder()
-            .setCustomerId("${this.firstName},${this.lastName}")
-            .setPurchaseTotal(this.price * this.quantity)
-            .setTotalRewardPoints(0)
-            .setCurrentRewardPoints(0)
-            .setDaysFromLastPurchase(0)
             .build()
 }
