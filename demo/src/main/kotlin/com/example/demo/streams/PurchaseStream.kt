@@ -1,6 +1,8 @@
 package com.example.demo.streams
 
+import com.example.demo.partitioner.RewardsStreamPartitioner
 import com.example.demo.securitydb.SecurityDbService
+import com.example.demo.transformer.PurchaseRewardTransformer
 import com.illenko.avro.Purchase
 import com.illenko.avro.PurchasePattern
 import com.illenko.avro.RewardAccumulator
@@ -11,6 +13,8 @@ import org.apache.kafka.streams.kstream.Branched
 import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.KStream
 import org.apache.kafka.streams.kstream.Produced
+import org.apache.kafka.streams.kstream.ValueTransformerSupplier
+import org.apache.kafka.streams.state.Stores
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -20,12 +24,13 @@ class PurchaseStream(
     private val purchasePatternSerde: SpecificAvroSerde<PurchasePattern>,
     private val rewardAccumulatorSerde: SpecificAvroSerde<RewardAccumulator>,
     private val securityDbService: SecurityDbService,
+    private val rewardsStreamPartitioner: RewardsStreamPartitioner,
 ) {
     @Bean
     fun kStream(builder: StreamsBuilder): KStream<String, Purchase> {
         val purchaseKStream = createPurchaseStream(builder)
         createPatternStream(purchaseKStream)
-        createRewardsStream(purchaseKStream)
+        createRewardsStream(builder, purchaseKStream)
         splitStreamByDepartment(purchaseKStream)
         filterAndSaveToSecurityDb(purchaseKStream)
         filterAndMaskPurchases(purchaseKStream)
@@ -55,16 +60,34 @@ class PurchaseStream(
         return patternKStream
     }
 
-    private fun createRewardsStream(purchaseKStream: KStream<String, Purchase>): KStream<String, RewardAccumulator> {
-        val rewardsKStream = purchaseKStream.mapValues { p -> p.toReward() }
-        rewardsKStream.to(
+    // TODO: review this code and replace deprecated parts
+    private fun createRewardsStream(
+        builder: StreamsBuilder,
+        purchaseKStream: KStream<String, Purchase>,
+    ): KStream<String, RewardAccumulator> {
+        val storeSupplier = Stores.inMemoryKeyValueStore("rewardsPointsStore")
+        val storeBuilder = Stores.keyValueStoreBuilder(storeSupplier, Serdes.String(), Serdes.Integer())
+
+        builder.addStateStore(storeBuilder)
+
+        val purchasesByCustomerStream =
+            purchaseKStream.through(
+                "customer_transactions",
+                Produced.with(Serdes.String(), purchaseSerde, rewardsStreamPartitioner),
+            )
+
+        val statefulRewardAccumulator =
+            purchasesByCustomerStream.transformValues(
+                ValueTransformerSupplier { PurchaseRewardTransformer("rewardsPointsStore") },
+                "rewardsPointsStore",
+            )
+
+        statefulRewardAccumulator.to(
             "rewards",
-            Produced.with(
-                Serdes.String(),
-                rewardAccumulatorSerde,
-            ),
+            Produced.with(Serdes.String(), rewardAccumulatorSerde),
         )
-        return rewardsKStream
+
+        return statefulRewardAccumulator
     }
 
     private fun splitStreamByDepartment(purchaseKStream: KStream<String, Purchase>) {
