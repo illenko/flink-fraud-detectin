@@ -31,6 +31,7 @@ dependencies {
     implementation("org.apache.kafka:kafka-streams")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     implementation("org.apache.avro:avro:$avroVersion")
     implementation("com.illenko:data-model:$purchaseModelVersion")

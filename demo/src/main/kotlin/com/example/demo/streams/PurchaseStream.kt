@@ -10,6 +10,7 @@ import com.illenko.avro.RewardAccumulator
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde
 import org.apache.kafka.common.serialization.Serdes
 import org.apache.kafka.streams.StreamsBuilder
+import org.apache.kafka.streams.Topology
 import org.apache.kafka.streams.kstream.Branched
 import org.apache.kafka.streams.kstream.Consumed
 import org.apache.kafka.streams.kstream.KStream
@@ -29,7 +30,7 @@ class PurchaseStream(
     private val rewardsStreamPartitioner: RewardsStreamPartitioner,
 ) {
     @Bean
-    fun kStream(builder: StreamsBuilder): KStream<String, Purchase> {
+    fun topology(builder: StreamsBuilder): Topology {
         val purchaseKStream = createPurchaseStream(builder)
         createPatternStream(purchaseKStream)
         createRewardsStream(builder, purchaseKStream)
@@ -37,7 +38,7 @@ class PurchaseStream(
         filterAndSaveToSecurityDb(purchaseKStream)
         filterAndMaskPurchases(purchaseKStream)
 
-        return purchaseKStream
+        return builder.build()
     }
 
     private fun createPurchaseStream(builder: StreamsBuilder): KStream<String, Purchase> =
