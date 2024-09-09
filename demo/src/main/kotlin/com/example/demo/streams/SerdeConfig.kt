@@ -1,5 +1,6 @@
 package com.example.demo.streams
 
+import com.illenko.avro.CorrelatedPurchase
 import com.illenko.avro.Purchase
 import com.illenko.avro.PurchasePattern
 import com.illenko.avro.RewardAccumulator
@@ -24,6 +25,9 @@ class SerdeConfig {
 
     @Bean
     fun rewardAccumulatorSerde(config: Map<String, String>): SpecificAvroSerde<RewardAccumulator> = createSerde(config)
+
+    @Bean
+    fun correlatedPurchaseSerde(config: Map<String, String>): SpecificAvroSerde<CorrelatedPurchase> = createSerde(config)
 
     private fun <T : SpecificRecord> createSerde(serdeConfig: Map<String, String>): SpecificAvroSerde<T> =
         SpecificAvroSerde<T>().apply {
