@@ -1,6 +1,7 @@
 package com.illenko.producer
 
 import com.illenko.avro.Purchase
+import com.illenko.avro.StockTickerData
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -51,6 +52,28 @@ class ProducerApplication {
             .setPurchaseDate(Instant.now())
             .setZipCode(zipCodes.random())
             .setStoreId(storeIds.random())
+            .build()
+    }
+
+    @Bean
+    fun produceStocks(kafkaTemplate: KafkaTemplate<String, StockTickerData>) =
+        CommandLineRunner {
+            val scheduler = Executors.newScheduledThreadPool(1)
+            scheduler.scheduleAtFixedRate({
+                val stockRecord = generateRandomStock()
+                kafkaTemplate.send("stock-tickers", stockRecord.symbol, stockRecord).get()
+                println("Sent: $stockRecord")
+            }, 0, 10, TimeUnit.SECONDS)
+        }
+
+    private fun generateRandomStock(): StockTickerData {
+        val stockTickers = listOf("AAPL", "GOOGL", "AMZN", "MSFT")
+        val prices = listOf(10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0)
+
+        return StockTickerData
+            .newBuilder()
+            .setSymbol(stockTickers.random())
+            .setPrice(prices.random())
             .build()
     }
 }
