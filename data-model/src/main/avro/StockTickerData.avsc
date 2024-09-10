@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "StockTickerData",
+  "namespace": "com.illenko.avro",
+  "fields": [
+    {
+      "name": "price",
+      "type": "double"
+    },
+    {
+      "name": "symbol",
+      "type": "string"
+    }
+  ]
+}
